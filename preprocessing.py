@@ -43,8 +43,3 @@ def adjust_keys_df_for_comparison(keys, step_max,sample_factor):
     MSCRED_keys_for_comparison = MSCRED_keys_for_comparison.drop('neighbor_drone',1)
     return MSCRED_keys_for_comparison
 
-
-
-test_X_for_comparison = adjust_y_or_labels_to_fit_model_output(test_X, config['step_max'], return_as_np=False)
-test_labels_for_comparison = adjust_y_or_labels_to_fit_model_output(test_labels, config['step_max'])
-test_keys_for_comparison = adjust_keys_df_for_comparison(test_keys,config['step_max'],config['sample_factor'])
