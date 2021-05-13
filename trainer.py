@@ -1,16 +1,11 @@
 import numpy as np
 import tensorflow as tf
 import pandas as pd
-
-pd.set_option('display.max_columns', 100)
-pd.set_option('display.max_rows', 200)
-pd.set_option('display.width', 1000)
-import os, sys
+import os
 import time
 from tqdm import tqdm
-
 from MSCRED import createMSCRED
-import gc
+
 
 class Trainer:
     """"config (dict"""
@@ -74,7 +69,7 @@ class Trainer:
         return value
 
 
-    def run_on_dataset(self, step_max, data_scaled, operations, ephoc=0, data_y_scaled='', drop_rate=0.0, random_samplig=False):
+    def run_on_dataset(self, step_max, data_scaled, operations, ephoc=0, data_y_scaled='', drop_rate=0.0, random_samplig=False,pupr=''):
         """Iterates over the data, each iteration pass chunk in size of step_max to function that execute the computation graph
           recive: step max: number of time steps (int)
                   data_scaled: X of the datasets (numpy array (num_of_sumples, mat_first_dim, mat_second_dim,num of win sizes ) )
@@ -115,6 +110,7 @@ class Trainer:
         else:  # feed samples by order
             iter_results_ls = []
             for sim_iter_idx in iter_idx_ls:
+
                 sim_iter_data = data_scaled[sim_iter_idx]
                 sim_iter_data_y = data_y_scaled[sim_iter_idx]
 
@@ -124,8 +120,15 @@ class Trainer:
                     # print(first_step)
                     output = self.run_on_singal_batch(first_step, step_max, sim_iter_data, operations=operations,
                                                  data_y_scaled=sim_iter_data_y, drop_rate=drop_rate)
+
                     steps_results_ls.append(np.squeeze(output))
-                iter_results_ls.append(np.array(steps_results_ls))
+
+                if pupr == 'recunstract':
+                    iter_results_ls.append(np.array(steps_results_ls))
+                else:
+                    iter_results_ls +=steps_results_ls
+
+
             return iter_results_ls
 
         print('time of ephoc: ', (time.time() - start))
@@ -200,6 +203,7 @@ class Trainer:
 
 
     def recunstract_val_and_test(self):
+        print('Start recunstract val and test ')
         with tf.Session() as self.sess:  # config=tf.ConfigProto() inter_op_parallelism_threads=80, intra_op_parallelism_threads=80,
             devices = self.sess.list_devices()
             print('==============devices:============================\n', devices)
@@ -208,10 +212,10 @@ class Trainer:
             print('num of val iters: {} num of test iters {}'.format(len(self.val_X),len(self.test_X)))
 
             recunstract_val_ls = self.run_on_dataset(self.config['step_max'], data_scaled=self.val_X, operations=[self.deconv_out],
-                                                data_y_scaled=self.val_X)
+                                                data_y_scaled=self.val_X,pupr='recunstract')
 
             recunstract_test_ls = self.run_on_dataset(self.config['step_max'], data_scaled=self.test_X, operations=[self.deconv_out],
-                                                data_y_scaled=self.test_X)
+                                                data_y_scaled=self.test_X,pupr='recunstract')
 
 
 
@@ -220,10 +224,6 @@ class Trainer:
 
 
 
-
-
-
-"""Reconstruct valdiation and test"""
 
 
 

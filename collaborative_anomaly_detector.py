@@ -8,11 +8,6 @@ from tslearn.metrics import dtw_path
 from dtw import *
 from preprocessing import adjust_keys_df_for_comparison, adjust_y_or_labels_to_fit_model_output
 from signature_matrix import data_to_drones_dfs
-def compute_RMSE(Y, pre):
-    iters_num = len(Y)
-    MAE_ls = [np.sqrt(((Y[iter] - pre[iter]) ** 2).mean(axis=(1,2,3))) for iter in range(iters_num)]
-    MAE_np = np.concatenate(MAE_ls, axis=(0))
-    return MAE_np
 
 def compute_DTW_to_each_drone(drones_df_ls,win_size,no_sensors_cols, per_series=False,process_gps = True,use_scaler=True):
     print('Start compute DTW')
@@ -114,7 +109,7 @@ def rolling_mean_on_col(df, win_size, col_name):
     new_col_name = col_name + '_roll'
     df[new_col_name] = df[col_name]
     for drone in range(1, num_of_drones + 1):
-        print(drone)
+
         for iter in df.iter.unique():
             iter_cond = df.iter == iter
             drone_cond = df.drone == drone
@@ -123,25 +118,29 @@ def rolling_mean_on_col(df, win_size, col_name):
 
     return df
 
-def create_keys_df_with_dtw(Y_for_comparison, recunstract_ls, keys,label,RMSE_np,config):
-    MSCRED_keys_for_comparison = adjust_keys_df_for_comparison(keys,step_max,sample_factor)
 
-    MSCRED_keys_for_comparison['RMSE'] = RMSE_np
-    # MSCRED_keys_for_comparison
-    # MSCRED_keys_for_comparison = MSCRED_keys_for_comparison.loc[MSCRED_keys_for_comparison.iter.isin(['37simple','81simple','84followpath']),:]
-    MSCRED_keys_for_comparison  = rolling_mean_on_col(MSCRED_keys_for_comparison, win_size=20, col_name='RMSE')
-    MSCRED_label_for_comparison = adjust_y_or_labels_to_fit_model_output(label, step_max)
-    MSCRED_keys_for_comparison['label'] = MSCRED_label_for_comparison
-    drones_df_ls = data_to_drones_dfs(MSCRED_keys_for_comparison)
+def create_data_for_collaborative_anomaly_detection(keys, labels, RMSE_np, config):
+    MSCRED_keys_for_comparison = adjust_keys_df_for_comparison(keys, config['step_max'], config['sample_factor'])
+    data_with_labels_and_RMSE = MSCRED_keys_for_comparison.copy()
+    MSCRED_label_for_comparison = adjust_y_or_labels_to_fit_model_output(labels, config['step_max'], return_as_np=True)
+
+    data_with_labels_and_RMSE['label'] = MSCRED_label_for_comparison
+    data_with_labels_and_RMSE['RMSE'] = RMSE_np
+    return data_with_labels_and_RMSE
+
+def compute_dtw_between_drones(data_with_labels_and_RMSE,dtw_win_size=120):
+
+    data_with_labels_and_RMSE  = rolling_mean_on_col(data_with_labels_and_RMSE, win_size=20, col_name='RMSE')
+
+    drones_df_ls = data_to_drones_dfs(data_with_labels_and_RMSE)
 
     no_sensors_cols = ['drone', 'update_step', 'iter']
-    orig_dtw_results_df = compute_DTW_to_each_drone(drones_df_ls, win_size, per_series=False, process_gps=False,
+    dtw_between_drones = compute_DTW_to_each_drone(drones_df_ls, dtw_win_size, per_series=False, process_gps=False,
                                                    no_sensors_cols=no_sensors_cols,use_scaler=True)
 
-    return orig_dtw_results_df, MSCRED_label_for_comparison, RMSE_np
+    return dtw_between_drones
 
-def agg_DTW_by_drone(dtw_results_df,MSCRED_label_for_comparison,RMSE_np,keep_KNN_DTW_dist=False,KNN_for_DTW_dist =2,drones_in_analysis=5):
-    """keep drones_in_analysis (random drones )"""
+def agg_DTW_by_drone(dtw_results_df,data_for_collab_anomaly_detector,keep_KNN_DTW_dist=False,KNN_for_DTW_dist =2,drones_in_analysis=5):
     if drones_in_analysis < 5:
         # drones_in_analysis = 4
         ls_of_drones = list(range(0, 4))
@@ -153,20 +152,14 @@ def agg_DTW_by_drone(dtw_results_df,MSCRED_label_for_comparison,RMSE_np,keep_KNN
         indexs_to_keep = np.random.choice(ls_of_drones, drones_in_analysis - 1, replace=False)
 
         list_of_dfs = [df.iloc[indexs_to_keep,:] for df in list_of_dfs]
-
-
         dtw_results_df = pd.concat(list_of_dfs)
 
-        # compute mena and sd on drone DTW to other drones
-
-    # dtw_results_df = [for drone_iter_step in
     if keep_KNN_DTW_dist:
         dtw_results_df = dtw_results_df.groupby(['iter', 'update_step', 'drone'])['DTW_dist'].nsmallest(KNN_for_DTW_dist).reset_index()
 
     anomaly_by_keys = dtw_results_df.groupby(['iter', 'update_step', 'drone'], as_index=False).mean()
-    anomaly_by_keys['DTW_dist_std'] = dtw_results_df.groupby(['iter', 'update_step', 'drone']).std().reset_index()['DTW_dist']
-    anomaly_by_keys_sorted = anomaly_by_keys.sort_values(['iter', 'drone', 'update_step']).reset_index(drop=True)
+    keys_with_dtw_and_RMSE = anomaly_by_keys.sort_values(['iter', 'drone', 'update_step']).reset_index(drop=True)
 
-    anomaly_by_keys_sorted['label'] = MSCRED_label_for_comparison
-    anomaly_by_keys_sorted['RMSE'] = RMSE_np
-    return anomaly_by_keys_sorted, MSCRED_label_for_comparison
+    keys_with_dtw_and_RMSE['label'] = data_for_collab_anomaly_detector.label
+    keys_with_dtw_and_RMSE['RMSE'] = data_for_collab_anomaly_detector.RMSE
+    return keys_with_dtw_and_RMSE
