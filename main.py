@@ -84,6 +84,7 @@ if __name__ == "__main__":
                        'scenario', 'original_iter', 'latitude', 'longitude', 'altitude', 'collision'],
 
    'win_size_ls': [120, 60, 30],
+    'sample_factor': 2,
    # MSCRED parameters
    'step_max': 5,
    'sensor_n': 18,
