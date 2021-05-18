@@ -71,7 +71,7 @@ def main(config):
 
  print('============RESULTS for {} =================='.format(exp_config['scenario']))
  print('MSCREDs_anomaly_score_PR_AUC: {} RMSE_PR_AUC: {} DTW_PR_AUC: {} DTW_RMSE_PR_AUC {} '.format(
-  MSCREDs_anomaly_score_PR_AUC, RMSE_PR_AUC, MSCREDs_anomaly_score_PR_AUC, DTW_RMSE_PR_AUC))
+  MSCREDs_anomaly_score_PR_AUC, RMSE_PR_AUC, DTW_PR_AUC, DTW_RMSE_PR_AUC))
 
 
 if __name__ == "__main__":
@@ -93,7 +93,7 @@ if __name__ == "__main__":
    'learning_rate': 0.00005,
    'beta': 1,
    'scale_down_filter': 1,
-   'ephoces_num': 2,
+   'ephoces_num': 40,
    # if to concatnate other drone to X
    'drop_rate': 0.0  # dropuot
   }
